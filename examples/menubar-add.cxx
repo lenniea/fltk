@@ -28,7 +28,7 @@
 #include <string.h>                     // strcmp()
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
-#include <FL/Fl_Menu_Bar.H>
+#include <FL/Fl_Sys_Menu_Bar.H>
 #include <FL/filename.H>                // fl_open_uri()
 
 // This callback is invoked whenever the user clicks an item in the menu bar
@@ -52,12 +52,16 @@ static void MyMenuCallback(Fl_Widget *w, void *) {
 int main() {
   Fl::scheme("gtk+");
   Fl_Window *win = new Fl_Window(400,200, "menubar-simple");    // Create window
-  Fl_Menu_Bar *menu = new Fl_Menu_Bar(0,0,400,25);              // Create menubar, items..
-  menu->add("&File/&Open",  "^o", MyMenuCallback);
-  menu->add("&File/&Save",  "^s", MyMenuCallback, 0, FL_MENU_DIVIDER);
-  menu->add("&File/&Quit",  "^q", MyMenuCallback);
-  menu->add("&Edit/&Copy",  "^c", MyMenuCallback);
-  menu->add("&Edit/&Paste", "^v", MyMenuCallback, 0, FL_MENU_DIVIDER);
+  Fl_Sys_Menu_Bar *menu = new Fl_Sys_Menu_Bar(0,0,400,25);              // Create menubar, items..
+  menu->add("&File/&Open",  FL_COMMAND+'o', MyMenuCallback);
+  #ifdef __APPLE__
+  menu->add("&File/&Save",  FL_COMMAND+'s', MyMenuCallback, 0);
+  #else
+  menu->add("&File/&Save",  FL_COMMAND+'s', MyMenuCallback, 0, FL_MENU_DIVIDER);
+  menu->add("&File/&Quit",  FL_COMMAND+'q', MyMenuCallback);
+  #endif
+  menu->add("&Edit/&Copy",  FL_COMMAND+'c', MyMenuCallback);
+  menu->add("&Edit/&Paste", FL_COMMAND+'v', MyMenuCallback, 0, FL_MENU_DIVIDER);
   menu->add("&Edit/Radio 1",   0, MyMenuCallback, 0, FL_MENU_RADIO);
   menu->add("&Edit/Radio 2",   0, MyMenuCallback, 0, FL_MENU_RADIO|FL_MENU_DIVIDER);
   menu->add("&Edit/Toggle 1",  0, MyMenuCallback, 0, FL_MENU_TOGGLE);                   // Default: off

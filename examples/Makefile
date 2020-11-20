@@ -31,6 +31,7 @@ ALL = browser-simple$(EXEEXT) \
       table-with-keynav$(EXEEXT) \
       table-with-right-column-stretch-fit$(EXEEXT) \
       tabs-simple$(EXEEXT) \
+      toolbar$(EXEEXT) \
       textdisplay-with-colors$(EXEEXT) \
       texteditor-simple$(EXEEXT) \
       texteditor-with-dynamic-colors$(EXEEXT) \

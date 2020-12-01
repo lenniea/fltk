@@ -247,8 +247,53 @@ public:
     fclose(fp);
     return 0;
   }
-  int get_cell(int R, int C);
-  void set_cell(int R, int C, int value);
+  int format_cell(char* buf, int R, int C) {
+    int index = R * cols() + C;
+    int value;
+    switch (bwl) {
+      case BWL_BYTE:
+        value = ((uint8_t*) values)[index];
+        break;
+      case BWL_SBYTE:
+        value = ((int8_t*) values)[index];
+        break;
+      case BWL_WORD:
+        value = ((uint16_t*) values)[index];
+        break;
+      case BWL_SWORD:
+        value = ((int16_t*) values)[index];
+        break;
+      case BWL_LONG:
+        value = ((uint32_t*) values)[index];
+        break;
+      case BWL_SLONG:
+        value =  ((int32_t*) values)[index];
+        break;
+      default:
+        fprintf(stderr, "Unsupported type");
+    }
+    return format_num(buf, value);
+  }
+
+  void set_cell(int R, int C, int value) {
+    int index = R * cols() + C;
+    switch (bwl) {
+      case BWL_BYTE:
+      case BWL_SBYTE:
+        ((int8_t*) values)[index] = value;
+        break;
+      case BWL_WORD:
+      case BWL_SWORD:
+        ((int16_t*) values)[index] = value;
+        break;
+      case BWL_LONG:
+      case BWL_SLONG:
+        ((uint32_t*) values)[index] = value;
+        break;
+      default:
+        assert("Unsupported");
+    }
+  }
   ~HexGrid() {
     delete [] values;
    }
@@ -271,8 +316,7 @@ public:
     find_cell(CONTEXT_CELL, R,C, X,Y,W,H);              // Find X/Y/W/H of cell
     input->resize(X,Y,W,H);                             // Move Fl_Input widget there
     char s[30]; 
-    int value = get_cell(R,C);
-    format_num(s, value);
+    format_cell(s, R,C);
     input->value(s);
     input->position(0,strlen(s));                       // Select entire input field
     input->show();                                      // Show the input widget, now that we've positioned it
@@ -290,47 +334,6 @@ public:
 };
 
 HexGrid* table = NULL;
-
-int HexGrid::get_cell(int R, int C) {
-  int index = R * cols() + C;
-  switch (bwl) {
-    case BWL_BYTE:
-      return ((uint8_t*) values)[index];
-    case BWL_SBYTE:
-      return ((int8_t*) values)[index];
-    case BWL_WORD:
-      return ((uint16_t*) values)[index];
-    case BWL_SWORD:
-      return ((int16_t*) values)[index];
-    case BWL_LONG:
-      return ((uint32_t*) values)[index];
-    case BWL_SLONG:
-      return ((int32_t*) values)[index];
-    default:
-      assert("Unsupported");
-  }
-  return 0;
-}
-
-void HexGrid::set_cell(int R, int C, int value) {
-  int index = R * cols() + C;
-  switch (bwl) {
-    case BWL_BYTE:
-    case BWL_SBYTE:
-      ((int8_t*) values)[index] = value;
-      break;
-    case BWL_WORD:
-    case BWL_SWORD:
-      ((int16_t*) values)[index] = value;
-      break;
-    case BWL_LONG:
-    case BWL_SLONG:
-      ((uint32_t*) values)[index] = value;
-      break;
-    default:
-      assert("Unsupported");
-  }
-}
 
 // Handle drawing all cells in table
 void HexGrid::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int H) {
@@ -386,7 +389,7 @@ void HexGrid::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int
       {
         fl_color(selected ? FL_WHITE : FL_BLACK);
         fl_font(FL_HELVETICA, 14);            // ..in regular font
-        format_num(s, get_cell(R,C));
+        format_cell(s, R,C);
         fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
       }
       fl_pop_clip();
@@ -512,13 +515,12 @@ static void copy_cb(Fl_Widget *, void *v) {
   int width = right - left + 1;
   int height = bot - top + 1;
   int cells = width * height;
-  fprintf(stderr, "copy %d x %d = %d cells\n", width, height, cells);
+  fprintf(stderr, "copy %d x %d cells\n", width, height);
   char* buf = new char[cells * col_chars()+1];
   int len = 0;
   for (int row = top; row <= bot; ++row) {
     for (int col = left; col <= right; ++col) {
-      int n = table->get_cell(row, col);
-      len += format_num(buf + len, n);
+      len += table->format_cell(buf + len, row, col);
       buf[len++] = (col == right) ? '\n' : '\t';
     }
   }

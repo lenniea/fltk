@@ -128,8 +128,14 @@ public:
     int len = sprintf(buf, "%u", n + 1);
     return len;
   }
-  int get_cell(int R, int C);
-  void set_cell(int R, int C, int value);
+  int format_cell(char* buf, int R, int C) {
+    int value = values[R][C];
+    return format_num(buf, value);
+  }
+  void set_cell(int R, int C, int value) {
+    values[R][C] = value;
+  }
+
   ~Spreadsheet() { }
 
   // Apply value from input widget to values[row][col] array and hide (done editing)
@@ -190,14 +196,6 @@ public:
 };
 
 Spreadsheet* table = NULL;
-
-int Spreadsheet::get_cell(int R, int C) {
-  return values[R][C];
-}
-
-void Spreadsheet::set_cell(int R, int C, int value) {
-  values[R][C] = value;
-}
 
 // Handle drawing all cells in table
 void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int H) {
@@ -370,8 +368,7 @@ static void copy_cb(Fl_Widget *, void *v) {
   int len = 0;
   for (int row = top; row <= bot; ++row) {
     for (int col = left; col <= right; ++col) {
-      int n = table->get_cell(row, col);
-      len += format_num(buf + len, n);
+      len += table->format_cell(buf + len, row, col);
       buf[len++] = (col == right) ? '\n' : '\t';
     }
   }

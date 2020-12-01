@@ -17,6 +17,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <assert.h>
 #include <ctype.h>
 #include <FL/Fl.H>
@@ -34,13 +35,6 @@ const int MAX_ROWS = 100;
 const int COL_WIDTH = 10;
 const int SEL_SIZE  = 2;
 const int CELL_BORDER = 5;
-
-////////////////////////////////////////////
-//           R E S O U R C E S
-////////////////////////////////////////////
-
-#include "res/Folder.xpm"
-#include "res/Save.xpm"
 
 ////////////////////////////////////////////
 //               T Y P E S
@@ -620,13 +614,13 @@ int main() {
   win = new Fl_Double_Window(920, 480, "Fl Hex Editor");
   Fl_Sys_Menu_Bar menubar(0, 0, win->w(), 25);
   menubar.menu(Main_Menu);
-  table = new HexGrid(CELL_BORDER, CELL_BORDER, win->w()-CELL_BORDER*2, win->h()-CELL_BORDER*2 - TOOLBAR_Y);
+  table = new HexGrid(CELL_BORDER, CELL_BORDER+TOOLBAR_Y, win->w()-CELL_BORDER*2, win->h()-CELL_BORDER*2 - TOOLBAR_Y);
   table->tab_cell_nav(1);               // enable tab navigation of table cells (instead of fltk widgets)
   table->tooltip("Use keyboard to navigate cells:\n"
                  "Arrow keys or Tab/Shift-Tab");
   // Table rows
   table->row_header(1);
-  table->row_header_width(80);
+  table->row_header_width(100);
   table->row_resize(1);
   table->rows(MAX_ROWS);
   table->row_height_all(25);

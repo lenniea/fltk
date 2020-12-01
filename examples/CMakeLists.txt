@@ -32,6 +32,7 @@ file (MAKE_DIRECTORY ${EXECUTABLE_OUTPUT_PATH})
 set (SIMPLE_SOURCES
   browser-simple
   draggable-group
+  hexedit
   howto-add_fd-and-popen
   howto-browser-with-icons
   howto-drag-and-drop

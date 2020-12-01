@@ -1,0 +1,19 @@
+/* XPM */
+// Folder icon
+static const char *Folder_xpm[] = {
+  "13 11 3 1",
+  "   c None",
+  "x  c #d8d833",
+  "@  c #808011",
+  "             ",
+  "     @@@@    ",
+  "    @xxxx@   ",
+  "@@@@@xxxx@@  ",
+  "@xxxxxxxxx@  ",
+  "@xxxxxxxxx@  ",
+  "@xxxxxxxxx@  ",
+  "@xxxxxxxxx@  ",
+  "@xxxxxxxxx@  ",
+  "@xxxxxxxxx@  ",
+  "@@@@@@@@@@@  "
+};

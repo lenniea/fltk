@@ -1,8 +1,9 @@
 //
-//      Simple example of an interactive spreadsheet using Fl_Table.
+//      Simple example of an interactive Hex Editor using Fl_Table.
 //      Uses Mr. Satan's technique of instancing an Fl_Input around.
 //
 // Copyright 1998-2010 by Bill Spitzak and others.
+// Copyright 2020 by Lennie Araki
 //
 // This library is free software. Distribution and use rights are outlined in
 // the file "COPYING" which should have been included with this file.  If this
@@ -19,19 +20,49 @@
 #include <assert.h>
 #include <ctype.h>
 #include <FL/Fl.H>
+#include <FL/fl_ask.H>
+#include <FL/Fl_Button.H>
 #include <FL/Fl_Double_Window.H>
-#include <FL/Fl_Menu_Item.H>
+#include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Table.H>
-#include <FL/Fl_Int_Input.H>
 #include <FL/fl_draw.H>
+#include <FL/Fl_Choice.H>
 #include <FL/Fl_Sys_Menu_Bar.H>
 
 const int MAX_COLS = 100;
 const int MAX_ROWS = 100;
 const int COL_WIDTH = 10;
 const int SEL_SIZE  = 2;
+const int CELL_BORDER = 5;
 
-int base = 10;
+////////////////////////////////////////////
+//           R E S O U R C E S
+////////////////////////////////////////////
+
+#include "res/Folder.xpm"
+#include "res/Save.xpm"
+
+////////////////////////////////////////////
+//               T Y P E S
+////////////////////////////////////////////
+
+typedef enum bwl_t {
+  BWL_SIGNED = 0x10,
+  BWL_BYTE = 0, 
+  BWL_WORD = 1, 
+  BWL_THREE = 2, 
+  BWL_LONG = 3,
+  BWL_SBYTE = BWL_SIGNED | BWL_BYTE, 
+  BWL_SWORD = BWL_SIGNED | BWL_WORD, 
+  BWL_STHREE = BWL_SIGNED | BWL_THREE, 
+  BWL_SLONG = BWL_SIGNED | BWL_LONG,
+  BWL_MASK = 0x03,
+} BWL_T;
+
+BWL_T bwl = BWL_WORD;
+int cellsigned = 0;
+
+int base = 16;
 
 ////////////////////////////////////////////
 //          F U N C T I O N S
@@ -63,99 +94,196 @@ int8_t iDecWidth[] = {
 };
 
 int col_chars(void) {
-  int n = 1;
+  int n = (bwl & BWL_SIGNED) ? 2 : 1;
   if (base == 8) {
-    return 11 + n;
+    return iOctWidth[bwl & BWL_MASK] + n;
   }
   if (base == 10) {
-    return 10 + n;
+    return iDecWidth[bwl & BWL_MASK] + n;
   }
-  return 8 + n;
+  return ((bwl & BWL_MASK) + 1) * 2 + n;
 }
+
+const char* szOctFormat[] = {
+  "%03o", "%06o", "%08o", "%011o"
+};
+
+const char* szHexFormat[] = {
+  "%02X", "%04X", "%06X", "%08X"
+};
 
 int format_num(char* buf, int n) {
   int len = 0;
+  if (bwl & BWL_SIGNED && n < 0) {
+    buf[len++] = '-';
+    n = -n;
+  }
   if (base == 8) {
-    len += sprintf(buf + len, "%o", n);
+    len += sprintf(buf + len, szOctFormat[bwl & BWL_MASK], n);
   } else if (base == 10) {
     len += sprintf(buf + len, "%u", n);
   } else {
-    len += sprintf(buf + len, "%08X", n);
+    len += sprintf(buf + len, szHexFormat[bwl & BWL_MASK], n);
   }
   return len;
 }
 
-class Spreadsheet : public Fl_Table {
-  Fl_Int_Input *input;                                  // single instance of Fl_Int_Input widget
-  int values[MAX_ROWS][MAX_COLS];                       // array of data for cells
-  int row_edit, col_edit;                               // row/col being modified
+size_t auto_width(size_t count)  {
+  if ((count % 200) == 0) {
+    return 200;
+  }
+  if ((count % 416) == 0) {
+    return 416;
+  }
+  if ((count % 640) == 0) {
+    return 640;
+  }
+  return 32;
+}
+
+class HexGrid : public Fl_Table {
+  Fl_Input *input;                    // single instance of Fl_Input widget
+  uint8_t* values;                    // array of bytes for cells
+  size_t count;
+  int row_edit, col_edit;             // row/col being modified
 
 protected:
   void draw_cell(TableContext context,int=0,int=0,int=0,int=0,int=0,int=0);
   void event_callback2();                               // table's event callback (instance)
   static void event_callback(Fl_Widget*,void *v) {      // table's event callback (static)
-    ((Spreadsheet*)v)->event_callback2();
+    ((HexGrid*)v)->event_callback2();
   }
   static void input_cb(Fl_Widget*,void* v) {            // input widget's callback
-    ((Spreadsheet*)v)->set_value_hide();
+    ((HexGrid*)v)->set_value_hide();
   }
 
 public:
-  Spreadsheet(int X,int Y,int W,int H,const char* L=0) : Fl_Table(X,Y,W,H,L) {
+  HexGrid(int X,int Y,int W,int H,const char* L = 0) : Fl_Table(X,Y,W,H,L) {
     callback(&event_callback, (void*)this);
     when(FL_WHEN_NOT_CHANGED|when());
     // Create input widget that we'll use whenever user clicks on a cell
-    input = new Fl_Int_Input(W/2,H/2,0,0);
+    input = new Fl_Input(0,0,W,10);
     input->hide();                                      // hide until needed
     input->callback(input_cb, (void*)this);
     input->when(FL_WHEN_ENTER_KEY_ALWAYS);              // callback triggered when user hits Enter
-    input->maximum_size(5);
-    input->color(FL_YELLOW);                            // yellow to standout during editing
-    for (int c = 0; c < MAX_COLS; c++)
-      for (int r = 0; r < MAX_ROWS; r++)
-        values[r][c] = c + (r*MAX_COLS);                // initialize cells
-    end();
+    input->maximum_size(col_chars());
+//    input->color(FL_YELLOW);                          // yellow to standout during editing
+    values = NULL;
+    count = 0;
     row_edit = col_edit = 0;
     set_selection(0,0,0,0);
   }
+
+  void auto_shape(void) {
+    // Calculate number of rows
+    size_t row_bytes = auto_width(count);
+    size_t bytes_per_col = (bwl & BWL_MASK) + 1;
+    int width = row_bytes / bytes_per_col;
+    cols(width);
+    int height = (count + row_bytes - 1) / row_bytes;
+    rows(height);
+  }
+
+  uint8_t* make_cells(size_t n) {
+    // Delete previous buffer (if set)
+    if (values != NULL) {
+      delete [] values;
+    }
+    count = n;
+    values = new uint8_t[count];
+    auto_shape();
+    return values;
+  }
+
   int format_col(char* buf, int n) {
+  #if defined(EXCEL_HEADERS)
     int len = (n < 26) ? sprintf(buf, "%c", 'A'+n)
             : sprintf(buf, "%c%c", 'A' + n/26 - 1, 'A' + n%26);
+  #else
+    size_t bytes_per_col= (bwl & BWL_MASK) + 1;
+    int len = sprintf(buf, "%02lX", n * bytes_per_col);
+  #endif
     return len;
   }
 
   int format_row(char* buf, int n) {
+  #if defined(EXCEL_HEADERS)
     int len = sprintf(buf, "%u", n + 1);
+  #else
+    size_t bytes_per_col = (bwl & BWL_MASK) + 1;
+    size_t row_bytes = bytes_per_col * cols();
+    int len = sprintf(buf, "%08lX", n * row_bytes);
+  #endif
     return len;
+  }
+
+  int open_file(const char* filename) {
+    FILE* fp = fopen(filename, "rb");
+    if (fp == NULL) {
+      fl_alert("Can't open file '%s'", filename);
+      return -1;
+    }
+    fseek(fp, 0L, SEEK_END);
+    size_t len = ftell(fp);
+    fseek(fp, 0L, SEEK_SET);
+    uint8_t* buf = make_cells(len);
+    size_t nread = fread(buf, 1, len, fp);
+    fprintf(stderr, "Read %lu bytes\n", nread);
+    if (nread != len) {
+      fl_alert("Can't read %lu bytes", nread);
+      return -2;
+    }
+    fclose(fp);
+    table->end();
+    table->redraw();
+    return 0;
+  }
+  int save_file(const char* filename) {
+    FILE* fp = fopen(filename, "wb");
+    if (fp == NULL) {
+      fl_alert("Can't create file '%s'", filename);
+      return -1;
+    }
+    size_t nwrite = fread(values, 1, count, fp);
+    fprintf(stderr, "Write %lu bytes\n", nwrite);
+    if (nwrite != count) {
+      fl_alert("Can't write %lu bytes", nwrite);
+      return -2;
+    }
+    fclose(fp);
+    return 0;
   }
   int get_cell(int R, int C);
   void set_cell(int R, int C, int value);
-  ~Spreadsheet() { }
+  ~HexGrid() {
+    delete [] values;
+   }
 
   // Apply value from input widget to values[row][col] array and hide (done editing)
   void set_value_hide() {
-    values[row_edit][col_edit] = parse_num(input->value());
+    set_cell(row_edit,col_edit, parse_num(input->value()));
     input->hide();
     window()->cursor(FL_CURSOR_DEFAULT);                // XXX: if we don't do this, cursor can disappear!
   }
-  // Start editing a new cell: move the Fl_Int_Input widget to specified row/column
+  // Start editing a new cell: move the Fl_Input widget to specified row/column
   //    Preload the widget with the cell's current value,
   //    and make the widget 'appear' at the cell's location.
   //
   void start_editing(int R, int C) {
     row_edit = R;                                       // Now editing this row/col
     col_edit = C;
-    set_selection(R,C,R,C);                             // Clear any previous multicell selection
+//    set_selection(R,C,R,C);                             // Clear any previous multicell selection
     int X,Y,W,H;
     find_cell(CONTEXT_CELL, R,C, X,Y,W,H);              // Find X/Y/W/H of cell
     input->resize(X,Y,W,H);                             // Move Fl_Input widget there
-    char s[30];
-    int value = values[R][C];
-    format_num(s, value);                               // Load input widget with cell's current value
+    char s[30]; 
+    int value = get_cell(R,C);
+    format_num(s, value);
     input->value(s);
     input->position(0,strlen(s));                       // Select entire input field
     input->show();                                      // Show the input widget, now that we've positioned it
     input->take_focus();                                // Put keyboard focus into the input widget
+    damage(FL_DAMAGE_ALL);
   }
   // Tell the input widget it's done editing, and to 'hide'
   void done_editing() {
@@ -165,42 +293,53 @@ public:
       col_edit = 0;
     }
   }
-  // Return the sum of all rows in this column
-  int sum_rows(int C) {
-    int sum = 0;
-    for (int r=0; r<rows()-1; ++r)                      // -1: don't include cell data in 'totals' column
-      sum += values[r][C];
-    return(sum);
-  }
-  // Return the sum of all cols in this row
-  int sum_cols(int R) {
-    int sum = 0;
-    for (int c=0; c<cols()-1; ++c)                      // -1: don't include cell data in 'totals' column
-      sum += values[R][c];
-    return(sum);
-  }
-  // Return the sum of all cells in table
-  int sum_all() {
-    int sum = 0;
-    for (int c=0; c<cols()-1; ++c)                      // -1: don't include cell data in 'totals' column
-      for (int r=0; r<rows()-1; ++r)                    // -1: ""
-        sum += values[r][c];
-    return(sum);
-  }
 };
 
-Spreadsheet* table = NULL;
+HexGrid* table = NULL;
 
-int Spreadsheet::get_cell(int R, int C) {
-  return values[R][C];
+int HexGrid::get_cell(int R, int C) {
+  int index = R * cols() + C;
+  switch (bwl) {
+    case BWL_BYTE:
+      return ((uint8_t*) values)[index];
+    case BWL_SBYTE:
+      return ((int8_t*) values)[index];
+    case BWL_WORD:
+      return ((uint16_t*) values)[index];
+    case BWL_SWORD:
+      return ((int16_t*) values)[index];
+    case BWL_LONG:
+      return ((uint32_t*) values)[index];
+    case BWL_SLONG:
+      return ((int32_t*) values)[index];
+    default:
+      assert("Unsupported");
+  }
+  return 0;
 }
 
-void Spreadsheet::set_cell(int R, int C, int value) {
-  values[R][C] = value;
+void HexGrid::set_cell(int R, int C, int value) {
+  int index = R * cols() + C;
+  switch (bwl) {
+    case BWL_BYTE:
+    case BWL_SBYTE:
+      ((int8_t*) values)[index] = value;
+      break;
+    case BWL_WORD:
+    case BWL_SWORD:
+      ((int16_t*) values)[index] = value;
+      break;
+    case BWL_LONG:
+    case BWL_SLONG:
+      ((uint32_t*) values)[index] = value;
+      break;
+    default:
+      assert("Unsupported");
+  }
 }
 
 // Handle drawing all cells in table
-void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int H) {
+void HexGrid::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int H) {
   static char s[30];
   switch ( context ) {
     case CONTEXT_STARTPAGE:                     // table about to redraw
@@ -210,19 +349,15 @@ void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W
       fl_font(FL_HELVETICA | FL_BOLD, 14);      // set font for heading to bold
       fl_push_clip(X,Y,W,H);                    // clip region for text
       {
-        fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, col_header_color());
+        fl_draw_box(FL_UP_BOX, X,Y,W,H, col_header_color());
         if (is_selected(row_edit,C)) {
           // draw selection on bottom edge
           fl_color(FL_DARK_BLUE);
           fl_rectf(X,Y+H-SEL_SIZE-1, W, SEL_SIZE);
         }
         fl_color(FL_BLACK);
-        if (C == cols()-1) {                    // Last column? show 'TOTAL'
-          fl_draw("TOTAL", X,Y,W,H, FL_ALIGN_CENTER);
-        } else {                                // Not last column? show column letter
-          format_col(s, C);
-          fl_draw(s, X,Y,W,H, FL_ALIGN_CENTER);
-        }
+        format_col(s, C);
+        fl_draw(s, X,Y,W,H, FL_ALIGN_CENTER);
       }
       fl_pop_clip();
       return;
@@ -231,19 +366,15 @@ void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W
       fl_font(FL_HELVETICA | FL_BOLD, 14);      // set font for row heading to bold
       fl_push_clip(X,Y,W,H);
       {
-        fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, row_header_color());
+        fl_draw_box(FL_UP_BOX, X,Y,W,H, row_header_color());
         if (is_selected(R,col_edit)) {
           // draw selection on right edge
           fl_color(FL_DARK_BLUE);
           fl_rectf(X+W-SEL_SIZE-1, Y, SEL_SIZE, H);
         }
         fl_color(FL_BLACK);
-        if (R == rows()-1) {                    // Last row? Show 'Total'
-          fl_draw("TOTAL", X,Y,W,H, FL_ALIGN_CENTER);
-        } else {                                // Not last row? show row#
-          format_row(s, R);
-          fl_draw(s, X,Y,W,H, FL_ALIGN_CENTER);
-        }
+        format_row(s, R);
+        fl_draw(s, X,Y,W,H, FL_ALIGN_CENTER);
       }
       fl_pop_clip();
       return;
@@ -253,30 +384,16 @@ void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W
         return;                                 // dont draw for cell with input widget over it
       }
       // Background
-      if ( C < cols()-1 && R < rows()-1 ) {
-        fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, is_selected(R,C) ? FL_YELLOW : FL_WHITE);
-      } else {
-        fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, is_selected(R,C) ? 0xddffdd00 : 0xbbddbb00);       // money green
-      }
+      bool selected = is_selected(R,C);
+      fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, selected ? FL_DARK_BLUE : FL_WHITE);
+
       // Text
       fl_push_clip(X+3, Y+3, W-6, H-6);
       {
-        fl_color(FL_BLACK);
-        if (C == cols()-1 || R == rows()-1) {   // Last row or col? Show total
-          fl_font(FL_HELVETICA | FL_BOLD, 14);  // ..in bold font
-          if (C == cols()-1 && R == rows()-1) { // Last row+col? Total all cells
-            format_num(s, sum_all());
-          } else if (C == cols()-1) {           // Row subtotal
-            format_num(s, sum_cols(R));
-          } else if (R == rows()-1) {           // Col subtotal
-            format_num(s, sum_rows(C));
-          }
-          fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
-        } else {                                // Not last row or col? Show cell contents
-          fl_font(FL_HELVETICA, 14);            // ..in regular font
-          format_num(s, values[R][C]);
-          fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
-        }
+        fl_color(selected ? FL_WHITE : FL_BLACK);
+        fl_font(FL_HELVETICA, 14);            // ..in regular font
+        format_num(s, get_cell(R,C));
+        fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
       }
       fl_pop_clip();
       return;
@@ -296,7 +413,7 @@ void Spreadsheet::draw_cell(TableContext context, int R,int C, int X,int Y,int W
 }
 
 // Callback whenever someone clicks on different parts of the table
-void Spreadsheet::event_callback2() {
+void HexGrid::event_callback2() {
   int R = callback_row();
   int C = callback_col();
   TableContext context = callback_context();
@@ -314,10 +431,12 @@ void Spreadsheet::event_callback2() {
           if ( Fl::event_key() == FL_Escape ) exit(0);  // ESC closes app
           done_editing();                               // finish any previous editing
           if (C==cols()-1 || R==rows()-1) return;       // no editing of totals column
-          switch ( Fl::e_text[0] ) {
+          switch ( tolower(Fl::e_text[0]) ) {
             case '0': case '1': case '2': case '3':     // any of these should start editing new cell
             case '4': case '5': case '6': case '7':
             case '8': case '9': case '+': case '-':
+            case 'a': case 'b': case 'c': case 'd': 
+            case 'e': case 'f':
               start_editing(R,C);                       // start new edit
               input->handle(Fl::event());               // pass typed char to input
               break;
@@ -341,14 +460,52 @@ void Spreadsheet::event_callback2() {
   }
 }
 
+Fl_Native_File_Chooser g_chooser;
+
 static void new_cb(Fl_Widget *, void *v) {
-  // TODO: Handle File New
+  // File/New: make a buffer of 16-bit words
+  bwl = BWL_WORD;
+  table->make_cells(MAX_ROWS * MAX_COLS * sizeof(uint16_t));
+  for (int c = 0; c < MAX_COLS; c++) {
+    for (int r = 0; r < MAX_ROWS; r++) {
+      table->set_cell(r,c,c + (r*MAX_COLS));                // initialize cells
+    }
+  }
+  table->end();
+  table->redraw();
 }
+
+Fl_Double_Window* win = NULL;
+
 static void open_cb(Fl_Widget *, void *v) {
-  // TODO: Handle File/Open...
+  // Handle File/Open...
+  g_chooser.directory(".");                                // directory to start browsing with
+  g_chooser.filter("Binary files\t*.bin,*.raw\n");
+  g_chooser.type(Fl_Native_File_Chooser::BROWSE_FILE);     // only picks files that exist
+  g_chooser.title("Pick a file please..");                 // custom title for chooser window
+  if (g_chooser.show() == 0) {
+    const char* filename = g_chooser.filename();
+    if (table->open_file(filename) >= 0) {
+      win->label(filename);
+    }
+  }
 }
 static void save_cb(Fl_Widget *, void *v) {
-  // TODO: Handle File/Save/SaveAs...
+  const char* filename = g_chooser.filename();
+  if ((long) v == 0 && filename != NULL) {
+    // File Save (with valid filename)
+    table->save_file(filename);
+  } else {
+    // File/Save As...
+    g_chooser.directory(".");                                // directory to start browsing with
+    g_chooser.filter("Binary files\t*.bin,*.raw\n");
+    g_chooser.type(Fl_Native_File_Chooser::BROWSE_FILE);     // only picks files that exist
+    g_chooser.title("Save file as..");
+    if (g_chooser.show() == 0) {
+      filename = g_chooser.filename();
+      table->save_file(filename);
+    }
+  }
 }
 #if !defined(__APPLE__)
 static void quit_cb(Fl_Widget *, void *v) {
@@ -376,7 +533,25 @@ static void copy_cb(Fl_Widget *, void *v) {
   delete [] buf;
 }
 static void paste_cb(Fl_Widget *, void *v) {
-  // TODO: Handle Edit/Paste
+  // TODO: handle paste from clipboard
+}
+static void view_cb(Fl_Widget *w, void *v) {
+  switch ((long) v) {
+    case BWL_BYTE:
+    case BWL_WORD:
+    case BWL_LONG:
+      bwl = (BWL_T) ((bwl & ~BWL_MASK) | ((long) v & BWL_MASK));
+      break;
+    case BWL_SIGNED:
+      bwl = (BWL_T) (bwl ^ BWL_SIGNED);
+      break;
+    default:
+      assert("Invalid size");
+  }
+  int width = col_chars() * COL_WIDTH;
+  table->col_width_all(width);
+  table->auto_shape();
+  table->redraw();
 }
 static void base_cb(Fl_Widget *, void *v) {
   long b = (long) v;
@@ -393,10 +568,9 @@ static void base_cb(Fl_Widget *, void *v) {
     default:
       assert("Invalid base");
   }
-  int width = col_chars() * COL_WIDTH;
-  table->col_width_all(width);
   table->redraw();
 }
+
 Fl_Menu_Item Main_Menu[] = {
 {"&File",0,0,0,FL_SUBMENU},
   {"&New", FL_COMMAND+'n', new_cb, 0},
@@ -425,9 +599,13 @@ Fl_Menu_Item Main_Menu[] = {
   {"&Paste", FL_COMMAND+'v', paste_cb},
   {0},
 {"&View",0,0,0,FL_SUBMENU},
+  {"&Byte", 0, view_cb, (void*) BWL_BYTE, FL_MENU_RADIO},
+  {"&Word", 0, view_cb, (void*)  BWL_WORD, FL_MENU_CHECK|FL_MENU_RADIO},
+  {"&Long", 0, view_cb, (void*) BWL_LONG, FL_MENU_RADIO|FL_MENU_DIVIDER},
   {"&Octal", 0, base_cb, (void*) 8, FL_MENU_RADIO},
-  {"&Decimal", 0, base_cb, (void*) 10, FL_MENU_CHECK|FL_MENU_RADIO},
-  {"&Hex", 0, base_cb, (void*) 16, FL_MENU_RADIO|FL_MENU_DIVIDER},
+  {"&Decimal", 0, base_cb, (void*) 10, FL_MENU_RADIO},
+  {"&Hex", 0, base_cb, (void*) 16, FL_MENU_CHECK|FL_MENU_RADIO|FL_MENU_DIVIDER},
+  {"&Signed", 0, view_cb, (void*) BWL_SIGNED, FL_MENU_TOGGLE},
   {0},
 {0}
 };
@@ -439,29 +617,28 @@ Fl_Menu_Item Main_Menu[] = {
 #endif
 
 int main() {
-  Fl_Double_Window *win = new Fl_Double_Window(862, 322, "Fl_Table Spreadsheet");
-  Fl_Sys_Menu_Bar menubar(0, 0, win->w(), 0);
+  win = new Fl_Double_Window(920, 480, "Fl Hex Editor");
+  Fl_Sys_Menu_Bar menubar(0, 0, win->w(), 25);
   menubar.menu(Main_Menu);
-
-  table = new Spreadsheet(10, 10, win->w()-20, win->h()-20);
+  table = new HexGrid(CELL_BORDER, CELL_BORDER, win->w()-CELL_BORDER*2, win->h()-CELL_BORDER*2 - TOOLBAR_Y);
   table->tab_cell_nav(1);               // enable tab navigation of table cells (instead of fltk widgets)
   table->tooltip("Use keyboard to navigate cells:\n"
                  "Arrow keys or Tab/Shift-Tab");
   // Table rows
   table->row_header(1);
-  table->row_header_width(70);
+  table->row_header_width(80);
   table->row_resize(1);
-  table->rows(MAX_ROWS+1);              // +1: leaves room for 'total row'
+  table->rows(MAX_ROWS);
   table->row_height_all(25);
   // Table cols
   table->col_header(1);
   table->col_header_height(25);
   table->col_resize(1);
-  table->cols(MAX_COLS+1);              // +1: leaves room for 'total column'
+  table->cols(MAX_COLS);
   int width = col_chars() * COL_WIDTH;
   table->col_width_all(width);
   // Show window
-  win->end();
+  new_cb(table, 0);
   win->resizable(table);
   win->show();
   return Fl::run();

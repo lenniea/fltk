@@ -27,64 +27,14 @@
 #include <FL/Fl_Pixmap.H>
 #include <FL/fl_message.H>
 
-// Document icon
-static const char *L_document_xpm[] = {
-  "13 11 3 1",
-  "   c None",
-  "x  c #d8d8f8",
-  "@  c #202060",
-  " @@@@@@@@@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @xxxxxxx@   ",
-  " @@@@@@@@@   "};
-static Fl_Pixmap L_document_pixmap(L_document_xpm);
+#include "res/Document.xpm"
+static Fl_Pixmap L_document_pixmap(Document_xpm);
 
-// Folder icon
-static const char *L_folder_xpm[] = {
-  "13 11 3 1",
-  "   c None",
-  "x  c #d8d833",
-  "@  c #808011",
-  "             ",
-  "     @@@@    ",
-  "    @xxxx@   ",
-  "@@@@@xxxx@@  ",
-  "@xxxxxxxxx@  ",
-  "@xxxxxxxxx@  ",
-  "@xxxxxxxxx@  ",
-  "@xxxxxxxxx@  ",
-  "@xxxxxxxxx@  ",
-  "@xxxxxxxxx@  ",
-  "@@@@@@@@@@@  "};
-static Fl_Pixmap L_folder_pixmap(L_folder_xpm);
+#include "res/Folder.xpm"
+static Fl_Pixmap L_folder_pixmap(Folder_xpm);
 
-// Red "X"
-static const char *L_redx_xpm[] = {
-  "13 11 5 1",
-  "   c None",
-  "+  c #222222",
-  "x  c #555555",
-  "-  c #882222",
-  "@  c #ffffff",
-  "   x+++x     ",
-  "  ++---++    ",
-  " ++-----++   ",
-  "++-@@-@@-++  ",
-  "++--@@@--++  ",
-  "++---@---++  ",
-  "++--@@@--++  ",
-  "++-@@-@@-++  ",
-  " ++-----++   ",
-  "  ++---++    ",
-  "   x+++x     "};
-static Fl_Pixmap L_redx_pixmap(L_redx_xpm);
+#include "res/RedX.xpm"
+static Fl_Pixmap L_redx_pixmap(RedX_xpm);
 
 // Handle the different menu items..
 void Menu_CB(Fl_Widget *w, void* data) {

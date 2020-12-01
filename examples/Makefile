@@ -7,6 +7,7 @@ SHELL = /bin/sh
 # Executables
 ALL = browser-simple$(EXEEXT) \
       clipboard$(EXEEXT) \
+      hexedit$(EXEEXT) \
       draggable-group$(EXEEXT) \
       howto-add_fd-and-popen$(EXEEXT) \
       howto-browser-with-icons$(EXEEXT) \

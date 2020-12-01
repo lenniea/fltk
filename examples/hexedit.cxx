@@ -249,6 +249,12 @@ public:
   }
   int format_cell(char* buf, int R, int C) {
     int index = R * cols() + C;
+    size_t bytes_per_col = (bwl & BWL_MASK) + 1;
+    int limit = count / bytes_per_col;
+    if (index >= limit) {
+      buf[0] = '\0';
+      return 0;
+    }
     int value;
     switch (bwl) {
       case BWL_BYTE:
@@ -271,6 +277,7 @@ public:
         break;
       default:
         fprintf(stderr, "Unsupported type");
+        value = 0;
     }
     return format_num(buf, value);
   }
@@ -381,18 +388,20 @@ void HexGrid::draw_cell(TableContext context, int R,int C, int X,int Y,int W,int
         return;                                 // dont draw for cell with input widget over it
       }
       // Background
-      bool selected = is_selected(R,C);
-      fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, selected ? FL_DARK_BLUE : FL_WHITE);
+      int len = format_cell(s, R,C);
+      if (len > 0) {
+        bool selected = is_selected(R,C);
+        fl_draw_box(FL_THIN_UP_BOX, X,Y,W,H, selected ? FL_DARK_BLUE : FL_WHITE);
 
-      // Text
-      fl_push_clip(X+3, Y+3, W-6, H-6);
-      {
-        fl_color(selected ? FL_WHITE : FL_BLACK);
-        fl_font(FL_HELVETICA, 14);            // ..in regular font
-        format_cell(s, R,C);
-        fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
+        // Text
+        fl_push_clip(X+3, Y+3, W-6, H-6);
+        {
+          fl_color(selected ? FL_WHITE : FL_BLACK);
+          fl_font(FL_HELVETICA, 14);            // ..in regular font
+          fl_draw(s, X+3,Y+3,W-6,H-6, FL_ALIGN_RIGHT);
+        }
+        fl_pop_clip();
       }
-      fl_pop_clip();
       return;
     }
 

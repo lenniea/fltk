@@ -343,15 +343,19 @@ void Spreadsheet::event_callback2() {
 
 static void new_cb(Fl_Widget *, void *v) {
   // TODO: Handle File New
+  fprintf(stderr, "new_cb\n");
 }
 static void open_cb(Fl_Widget *, void *v) {
   // TODO: Handle File/Open...
+  fprintf(stderr, "open_cb\n");
 }
 static void save_cb(Fl_Widget *, void *v) {
   // TODO: Handle File/Save/SaveAs...
+  fprintf(stderr, "save_cb\n");
 }
 #if !defined(__APPLE__)
 static void quit_cb(Fl_Widget *, void *v) {
+  exit(0);
 }
 #endif
 static void copy_cb(Fl_Widget *, void *v) {

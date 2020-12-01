@@ -228,7 +228,7 @@ public:
     fseek(fp, 0L, SEEK_SET);
     uint8_t* buf = make_cells(len);
     size_t nread = fread(buf, 1, len, fp);
-    fprintf(stderr, "Read %lu bytes\n", nread);
+    fprintf(stderr, "Read %lu bytes from '%s'\n", nread, filename);
     if (nread != len) {
       fl_alert("Can't read %lu bytes", nread);
       return -2;
@@ -244,8 +244,8 @@ public:
       fl_alert("Can't create file '%s'", filename);
       return -1;
     }
-    size_t nwrite = fread(values, 1, count, fp);
-    fprintf(stderr, "Write %lu bytes\n", nwrite);
+    size_t nwrite = fwrite(values, 1, count, fp);
+    fprintf(stderr, "Write %lu bytes to '%s'\n", nwrite, filename);
     if (nwrite != count) {
       fl_alert("Can't write %lu bytes", nwrite);
       return -2;
@@ -482,7 +482,6 @@ static void open_cb(Fl_Widget *, void *v) {
   g_chooser.directory(".");                                // directory to start browsing with
   g_chooser.filter("Binary files\t*.bin,*.raw\n");
   g_chooser.type(Fl_Native_File_Chooser::BROWSE_FILE);     // only picks files that exist
-  g_chooser.title("Pick a file please..");                 // custom title for chooser window
   if (g_chooser.show() == 0) {
     const char* filename = g_chooser.filename();
     if (table->open_file(filename) >= 0) {
@@ -499,8 +498,8 @@ static void save_cb(Fl_Widget *, void *v) {
     // File/Save As...
     g_chooser.directory(".");                                // directory to start browsing with
     g_chooser.filter("Binary files\t*.bin,*.raw\n");
-    g_chooser.type(Fl_Native_File_Chooser::BROWSE_FILE);     // only picks files that exist
-    g_chooser.title("Save file as..");
+    g_chooser.options(Fl_Native_File_Chooser::USE_FILTER_EXT|Fl_Native_File_Chooser::SAVEAS_CONFIRM);
+    g_chooser.type(Fl_Native_File_Chooser::BROWSE_SAVE_FILE);     // only picks files that exist
     if (g_chooser.show() == 0) {
       filename = g_chooser.filename();
       table->save_file(filename);
@@ -509,6 +508,7 @@ static void save_cb(Fl_Widget *, void *v) {
 }
 #if !defined(__APPLE__)
 static void quit_cb(Fl_Widget *, void *v) {
+  exit(0);
 }
 #endif
 static void copy_cb(Fl_Widget *, void *v) {

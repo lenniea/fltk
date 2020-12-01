@@ -54,10 +54,8 @@ int main() {
   Fl_Window *win = new Fl_Window(400,200, "menubar-simple");    // Create window
   Fl_Sys_Menu_Bar *menu = new Fl_Sys_Menu_Bar(0,0,400,25);              // Create menubar, items..
   menu->add("&File/&Open",  FL_COMMAND+'o', MyMenuCallback);
-  #ifdef __APPLE__
-  menu->add("&File/&Save",  FL_COMMAND+'s', MyMenuCallback, 0);
-  #else
   menu->add("&File/&Save",  FL_COMMAND+'s', MyMenuCallback, 0, FL_MENU_DIVIDER);
+  #if !defined(__APPLE__)
   menu->add("&File/&Quit",  FL_COMMAND+'q', MyMenuCallback);
   #endif
   menu->add("&Edit/&Copy",  FL_COMMAND+'c', MyMenuCallback);

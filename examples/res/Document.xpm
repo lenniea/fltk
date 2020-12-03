@@ -1,6 +1,5 @@
 /* XPM */
-// Document icon
-static const char *Document_xpm[] = {
+static const char * const Document_xpm[] = {
   "13 11 3 1",
   "   c None",
   "x  c #d8d8f8",

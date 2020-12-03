@@ -1,6 +1,5 @@
 /* XPM */
-// Folder icon
-static const char *Folder_xpm[] = {
+static const char * const Folder_xpm[] = {
   "13 11 3 1",
   "   c None",
   "x  c #d8d833",

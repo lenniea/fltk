@@ -61,9 +61,11 @@ Fl_XPM_Image::Fl_XPM_Image(const char *name) : Fl_Pixmap((char *const*)0) {
   int i = 0;
   int W,H,ncolors,chars_per_pixel;
   while (fgets(buffer,MAXSIZE+20,f)) {
-    if (buffer[0] != '\"') continue;
+    int j = 0;
+    while (buffer[j] == ' ') ++j;
+    if (buffer[j] != '\"') continue;
     char *myp = buffer;
-    char *q = buffer+1;
+    char *q = buffer + j + 1;
     while (*q != '\"' && myp < buffer+MAXSIZE) {
       if (*q == '\\') switch (*++q) {
       case '\r':

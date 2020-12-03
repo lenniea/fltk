@@ -1,6 +1,5 @@
 /* XPM */
-// Red "X"
-static const char *RedX_xpm[] = {
+static const char * const RedX_xpm[] = {
   "13 11 5 1",
   "   c None",
   "+  c #222222",

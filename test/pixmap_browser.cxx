@@ -77,14 +77,15 @@ void file_cb(const char *n) {
 
 void button_cb(Fl_Widget *,void *) {
   fl_file_chooser_callback(file_cb);
-  const char *fname = fl_file_chooser("Image file?","*.{bm,bmp,gif,jpg,pbm,pgm,png,ppm,xbm,xpm"
+  const char *fname = fl_file_chooser("Image file?","Images (*.{bm,bmp,gif,jpg})"
+	  "\tX Images (*.{pbm,pgm,png,ppm,xbm,xpm})"
 #ifdef FLTK_USE_SVG
-                                      ",svg"
+	  "\tSVG Files (*.{svg"
 #ifdef HAVE_LIBZ
-                                      ",svgz"
+                    ",*svgz"
 #endif // HAVE_LIBZ
 #endif // FLTK_USE_SVG
-                                      "}", name);
+					"})", name);
   puts(fname ? fname : "(null)"); fflush(stdout);
   fl_file_chooser_callback(0);
 }
